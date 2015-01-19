@@ -7,12 +7,11 @@ module RBFS
     end
 
     def data_type
-      case @data.class.to_s
-        when 'String' then :string
-        when 'NilClass' then :nil
-        when 'Symbol' then :symbol
-        when 'Fixnum' then :number
-        when 'Float' then :number
+      case @data
+        when String then :string
+        when NilClass then :nil
+        when Symbol then :symbol
+        when Fixnum, Float then :number
         else :boolean
       end
     end
