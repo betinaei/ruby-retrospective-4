@@ -84,8 +84,10 @@ module UI
     end
 
     def decorate(component, border, style)
-      component.styler = :downcase.to_proc if style == :downcase
-      component.styler = :upcase.to_proc   if style == :upcase
+      case style
+        when :downcase then component.styler = :downcase.to_proc
+        when :upcase then component.styler = :upcase.to_proc
+      end
       component = BorderDecorator.new(component, border) if border
       component
     end
