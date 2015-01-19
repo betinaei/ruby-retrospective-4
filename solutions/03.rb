@@ -26,24 +26,8 @@ module RBFS
         when 'nil' then File.new nil
         when 'string' then File.new data
         when 'symbol' then File.new data.to_sym
-        when 'number' then parse_helper(data)
-        else
-          parse_helper1(data)
-      end
-    end
-
-    def parse_helper(data)
-      if data.include? '.'
-        File.new data.to_f
-      else
-        File.new data.to_i end
-    end
-
-    def parse_helper1(data)
-      if data == 'true'
-        File.new true
-      else
-        File.new false
+        when 'number' then File.new data.to_f
+        else  File.new true
       end
     end
   end
