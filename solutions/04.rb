@@ -1,149 +1,145 @@
 module UI
-  module Vertical
-    def vertical_function(array, border)
-      help = array.map { |item| first(item) }
-      size = 0
-      help.each { |item| size = second(item, size) }
-      help = help.map { |item| third(item, border, size) }
-      help.join
+  class Component
+    attr_writer :styler
+
+    def initialize(parent)
+      @parent = parent
+      @styler = -> text { text }
     end
 
-    def first(item)
-      if item.include? "\n"
-  item.chop.split("\n")
-      else
-        [] << item
-      end
-    end
-
-    def second(array, size)
-      array.each do |item|
-        size = helper(size, item)
-      end
-      size
-    end
-
-    def third(array, border, size)
-      array = array.map do |item|
-        border + item + (" " * (size - item.length)) + border + "\n"
-      end
-      array
-    end
-
-    def helper(size, item)
-      size < item.length ? item.length : size
+    def stylize(text)
+      text = @parent.stylize(text) if @parent
+      @styler.call text
     end
   end
 
-  module Help
-    def function(array, size)
-      array.size > size ? array.size : size
+  class Label < Component
+    def initialize(parent, text)
+      super(parent)
+      @text = text
     end
 
-    def checker(size, index)
-      size != 1 || index != size - 1 ? "\n" : ""
+    def width
+      @text.size
     end
 
-    def get_size(item, size)
-      item.each { |element| size = helper(size, element) }
-      size
+    def height
+      1
     end
 
-    def transform(item, size)
-      item.map { |element| help(element, size) }
-    end
-
-    def help(item, size)
-      item.length != size ? item + (" " * (size - item.length)) : item
-    end
-
-    def check(border, string)
-      string << border if border != nil
+    def row_to_string(row)
+      stylize @text
     end
   end
 
-  module Horizontal
-    extend Vertical
-    extend Help
-    def self.horizontal_function(array, border)
-      size = 0
-      current = array.map { |item| first(item) }
-      current.each { |item| size = function(item, size) }
-      processing(current, size, border)
+  class BorderDecorator
+    def initialize(component, border)
+      @component = component
+      @border = border
     end
 
-    def self.processing(array, size, border)
-      @current = array
-      string, index = "", 0
-      size.times do
-  arrange(border, index, string)
-  string ,index = string + checker(size, index), index + 1
-      end
-      string << "\n"
+    def width
+      @component.width + 2 * @border.length
     end
 
-    def self.arrange(border, index, string)
-      check(border, string)
-      primary(@current, index, string)
-      check(border, string)
+    def height
+      @component.height
     end
 
-    def self.primary(array, index, string)
-      array.each do |item|
-  size = 0
-  size = get_size(item, size)
-  item = transform(item, size)
-  string << final(index, size, item)
-      end
+    def stylize(text)
+      @component.stylize text
     end
 
-    def self.final(index, size, item)
-      if (item[index] == nil and (not (item[0].include? "\n")))
-  " " * item[0].length
-      elsif
-  item[index] == nil then " " * size
+    def row_to_string(row)
+      component_string = @component.row_to_string(row)
+      "#{@border}#{component_string.ljust(@component.width)}#{@border}"
+    end
+  end
+
+  class Container < Component
+    attr_reader :components
+
+    def initialize(parent = nil, &block)
+      super(parent)
+      @components = []
+      instance_eval(&block)
+    end
+
+    def vertical(border: nil, style: nil, &block)
+      add decorate(VerticalGroup.new(self, &block), border, style)
+    end
+
+    def horizontal(border: nil, style: nil, &block)
+      add decorate(HorizontalGroup.new(self, &block), border, style)
+    end
+
+    def label(text:, border: nil, style: nil)
+      add decorate(Label.new(self, text), border, style)
+    end
+
+    private
+
+    def add(component)
+      @components << component
+    end
+
+    def decorate(component, border, style)
+      component.styler = :downcase.to_proc if style == :downcase
+      component.styler = :upcase.to_proc   if style == :upcase
+      component = BorderDecorator.new(component, border) if border
+      component
+    end
+  end
+
+  class VerticalGroup < Container
+    def width
+      @components.map(&:width).max
+    end
+
+    def height
+      @components.map(&:height).reduce(:+)
+    end
+
+    def row_to_string(row)
+      components_reaches = @components.map.with_index do |component, index|
+        [component, @components.first(index + 1).map(&:height).reduce(:+)]
+      end.select { |_, component_reach| row < component_reach }
+      component, component_reach = components_reaches.first
+      component.row_to_string(row - component_reach + component.height)
+    end
+  end
+
+  class HorizontalGroup < Container
+    def width
+      @components.map(&:width).reduce(:+)
+    end
+
+    def height
+      @components.map(&:height).max
+    end
+
+    def row_to_string(row)
+      @components.map { |component| component_to_s component, row }.join
+    end
+
+    private
+
+    def component_to_s(component, row)
+      if component.height > row
+        component.row_to_string row
       else
-  item[index]
+        " " * component.width
       end
     end
   end
 
-  class TextScreen
-    @main_array = []
-    @array = []
-    extend Vertical
-    include Horizontal
-
-    def self.label (text:, border: nil, style: nil)
-      text = text.send(style) if style != nil
-      if border != nil
-        @main_array << (border + text + border)
-      else
-  @main_array << text
-      end
-      @main_array.join
+  class TextScreen < HorizontalGroup
+    def self.draw(&block)
+      new(&block)
     end
 
-    def self.vertical(border: nil, style: nil)
-      Proc.new.call
-      @array << (@main_array.join("\n") << "\n") unless @main_array.empty?
-      @main_array = []
-      if border != nil then vertical_function(@array, border)
-      else
-        (@array.join("\n") << "\n").squeeze("\n")
-      end
-    end
-
-    def self.horizontal(border: nil, style: nil)
-      Proc.new.call
-      @array << @main_array.join unless @main_array.empty?
-      @main_array = []
-      UI::Horizontal.horizontal_function(@array, border)
-    end
-
-    def self.draw
-      @array = []
-      TextScreen.instance_eval(&Proc.new)
+    def to_s
+      (0...height).map { |row| "#{row_to_string(row)}\n" }.join
     end
   end
 end
