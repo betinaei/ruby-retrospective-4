@@ -2,7 +2,7 @@ def series(series_name, index)
   case series_name
     when 'fibonacci' then fibonacci(index)
     when 'lucas' then lucas(index)
-    else summed(index)
+    else fibonacci(index) + lucas(index)
   end
 end
 
@@ -16,8 +16,4 @@ def lucas(index)
     when 2 then 1
     else lucas(index - 1) + lucas(index - 2)
   end
-end
-
-def summed(index)
-  fibonacci(index) + lucas(index)
 end
