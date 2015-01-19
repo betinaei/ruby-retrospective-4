@@ -32,134 +32,60 @@ module RBFS
     end
   end
 
-
   class Directory
     def initialize
-      @directory = []
+      @directories = {}
+      @files = {}
     end
 
     def add_file(name, file)
-      @directory << [name, file]
+      @directory[name] = file
     end
 
     def add_directory(name, directory = Directory.new)
-      @directory << [name, directory]
+      @directory[name] = directory
     end
 
     def [](name)
-      help = []
-      help = @directory.select { | (first, second) | first == name }
-      case help.size
-        when 1 then help.flatten.last
-        when 2 then Helper.getter(help)
-        else
-          nil
+      if ! @directories[name]
+        @files[name]
+      else
+        @directories[name]
       end
-    end
-
-    def files
-      hash = {}
-      data = @directory.select { | (first, last) | last.instance_of? File }
-      data.each do | (first, last) |
-        hash[first] = last
-      end
-      hash
-    end
-
-    def directories
-      hash = {}
-      data = @directory.select { | (first, last) | (last.is_a? Directory or last == []) }
-      data.each do | (first, last) |
-        hash[first] = last
-      end
-      hash
     end
 
     def serialize
-      result = ""
-      if files.empty? & directories.empty?
-        result += "0:0:"
-      else
-        result = Helper.serializing(result, files, directories)
+      result = "#{@files.count}:"
+      @files.each do |name, file|
+        result += "#{name}:#{file.serialize.length}:#{file.serialize}"
+      end
+      result += "#{@directories.count}:"
+      @directories.each do |name, directory|
+        serialized = directory.serialize
+        result += "#{name}:#{serialized.length}:#{serialized}"
       end
       result
     end
 
     def self.parse(string_data)
       directory = Directory.new
-      if string_data != '0:0:'
-        array = string_data.partition(':')
-        string_data = Helper.parsing(array, string_data, directory)
-        Helper.parsing_function(array, string_data, directory)
+      string_data = parser(string_data) do |name, str|
+        directory.add_file name, File.parse(str)
+      end
+      string_data = parser(string_data) do |name, str|
+        directory.add_directory name, Directory.parse(str)
       end
       directory
     end
-  end
 
-  class Helper
-    class << self
-      def parsing(array, string_data, directory)
-        string_data = array.last
-        array.first.to_i.times do
-        string_data = self.function(array, string_data, directory)
-        end
-        string_data
-     end
-
-      def function(array, string_data, directory)
-        array = string_data.partition(':')
-        file_name = array.first
-        array = array.last.partition(":")
-        count = array.first.to_i
-        directory.add_file(file_name, File.parse(array.last.slice(0, count)))
-        array = array.last.partition(":")
-        string_data = array.last.slice(count - array.first.size - 1, array.last.size)
-        string_data
+    def parser(string_data, &block)
+      n, string_data = string_data.split(':', 2)
+      n.to_i.times do
+        name, size, left = string_data.split(':', 3)
+        block.call name, left[0...size.to_i]
+        string_data = left[size.to_i..(-1)]
       end
-
-      def parsing_function(array, string_data, directory)
-        array = string_data.partition(":")
-        array.first.to_i.times do
-          array = array.last.partition(":")
-          name = array.first
-          array = array.last.partition(":")
-          limit = array.first.to_i
-          directory.add_directory(name, Directory.parse(array.last.slice(0, limit)))
-        end
-      end
-
-      def serializing(result, keys, data)
-        result = result + (keys.size.to_s + ':')
-        result, count = self.helper(result, keys.size, keys) + (data.size.to_s + ':'), 0
-        while(count < data.size)
-          data.values[count] = self.checker(data.values[count])
-          first, last = data.keys[count], data.values[count]
-          result += (first.to_s + ':' + last.serialize.length.to_s + ':' + last.serialize)
-          count += 1
-        end
-        result
-      end
-
-      def helper(result, size, hash)
-        count = 0
-        while (count < size)
-          key, value = hash.keys[count], hash.values[count]
-          result += (key.to_s + ':' + value.serialize.length.to_s + ':' + value.serialize)
-          count += 1
-        end
-        result
-      end
-
-      def checker(directory)
-        if (directory.files.empty? and directory.files.empty?)
-          directory = Directory.new
-        end
-        directory
-      end
-
-      def getter(help)
-        help.select{ | (first, second) | second.instance_of? Directory }.flatten.last
-      end
+      string_data
     end
   end
 end
