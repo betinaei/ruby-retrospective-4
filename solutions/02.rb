@@ -6,7 +6,9 @@ class NumberSet
   end
 
   def <<(new_number)
-    @set << new_number unless @set.include? new_number
+    if ! @set.include? new_number
+      @set << new_number
+    end
   end
 
   def size
